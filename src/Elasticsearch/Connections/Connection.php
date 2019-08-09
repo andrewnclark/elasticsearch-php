@@ -244,6 +244,7 @@ class Connection implements ConnectionInterface
                         $this->logRequestFail($request, $response, $exception);
 
                         $node = $connection->getHost();
+
                         $this->log->warning("Marking node $node dead.");
                         $connection->markDead();
 
@@ -364,7 +365,7 @@ class Connection implements ConnectionInterface
             'Request Success:',
             array(
                 'method'    => $request['http_method'],
-                'uri'       => $response['effective_url'],
+                'uri'       => $this->effectiveUrl($response),
                 'headers'   => $request['headers'],
                 'HTTP code' => $response['status'],
                 'duration'  => $response['transfer_stats']['total_time'],
@@ -373,14 +374,14 @@ class Connection implements ConnectionInterface
         $this->log->debug('Response', array($response['body']));
 
         // Build the curl command for Trace.
-        $curlCommand = $this->buildCurlCommand($request['http_method'], $response['effective_url'], $request['body']);
+        $curlCommand = $this->buildCurlCommand($request['http_method'], $this->effectiveUrl($response), $request['body']);
         $this->trace->info($curlCommand);
         $this->trace->debug(
             'Response:',
             array(
                 'response'  => $response['body'],
                 'method'    => $request['http_method'],
-                'uri'       => $response['effective_url'],
+                'uri'       => $this->effectiveUrl($response),
                 'HTTP code' => $response['status'],
                 'duration'  => $response['transfer_stats']['total_time'],
             )
@@ -403,7 +404,7 @@ class Connection implements ConnectionInterface
             'Request Failure:',
             array(
                 'method'    => $request['http_method'],
-                'uri'       => $response['effective_url'],
+                'uri'       => $this->effectiveUrl($response),
                 'headers'   => $request['headers'],
                 'HTTP code' => $response['status'],
                 'duration'  => $response['transfer_stats']['total_time'],
@@ -413,7 +414,7 @@ class Connection implements ConnectionInterface
         $this->log->warning('Response', array($response['body']));
 
         // Build the curl command for Trace.
-        $curlCommand = $this->buildCurlCommand($request['http_method'], $response['effective_url'], $request['body']);
+        $curlCommand = $this->buildCurlCommand($request['http_method'], $this->effectiveUrl($response), $request['body']);
         $this->trace->info($curlCommand);
         $this->trace->debug(
             'Response:',
@@ -688,5 +689,23 @@ class Connection implements ConnectionInterface
 
         // <2.0 "i just blew up" nonstructured exception
         return new $errorClass($responseBody);
+    }
+
+    /**
+     * Get the effective URL of the last request, including the
+     * port if it was provided.
+     *
+     * @see https://github.com/elastic/elasticsearch-php/issues/925
+     *
+     * @param  array  $response
+     * @return string
+     */
+    private function effectiveUrl(array $response): string
+    {
+        if ($response['transfer_stats']['primary_port'] !== 0) {
+            return rtrim($response['effective_url'], '/').":{$response['transfer_stats']['primary_port']}/";
+        }
+
+        return $response['effective_url'];
     }
 }
