@@ -236,7 +236,7 @@ class Connection implements ConnectionInterface
                 $this->lastRequest['response'] = $response;
 
                 if (isset($response['error']) === true) {
-                    if ($response['error'] instanceof ConnectException || $response['error'] instanceof RingException) {
+                    if ($response['error'] instanceof RingException) {
                         $this->log->warning("Curl exception encountered.");
 
                         $exception = $this->getCurlRetryException($request, $response);
